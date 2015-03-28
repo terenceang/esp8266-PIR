@@ -1,4 +1,7 @@
-user_config.h
+#user_config.h
+app_app.a
+app.out
+0x*.bin
 
 # Compiled source #
 ###################
