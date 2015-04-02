@@ -8,10 +8,13 @@ extern "C" {
 #endif
 
 #include <time.h>
+	
 extern time_t sntp_time;
 extern int sntp_tz;
 
-void sntp_init(int tz);
+typedef void (*sntpCallback)(time_t);
+
+void sntp_init(int tz, sntpCallback cb);
 void sntp_stop(void);
 
 extern void sntp_send_request(ip_addr_t *server_addr);

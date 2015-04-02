@@ -45,8 +45,7 @@ char *epoch_to_str(unsigned long epoch) {
    epoch%=3600;
    unsigned char min=epoch/60;
    unsigned char sec=epoch%60;
-   
 
-   os_sprintf(buf,"%02d:%02d:%02d %02d/%02d/%02d",hour,min,sec,month,day,year);
+   os_sprintf(buf,"%02d:%02d:%02d %02d/%02d/%02d",hour,min,sec,day,month,year);
    return buf;
 }

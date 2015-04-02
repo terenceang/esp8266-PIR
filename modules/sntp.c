@@ -61,14 +61,6 @@
 
 #if LWIP_UDP
 
-/**
- * SNTP_DEBUG: Enable debugging for SNTP.
- */
-#define SNTP_DEBUG LWIP_DBG_OFF
-#ifndef SNTP_DEBUG
-#define SNTP_DEBUG                  LWIP_DBG_OFF
-#endif
-
 /** SNTP server port */
 #ifndef SNTP_PORT
 #define SNTP_PORT                   123
@@ -223,6 +215,10 @@
 /* number of seconds between 1900 and 1970 */
 #define DIFF_SEC_1900_1970         (2208988800UL)
 
+#ifndef TZ_ADJ
+#define TZ_ADJ 0
+#endif
+
 /**
  * SNTP packet format (without optional fields)
  * Timestamps are coded as 64 bits:
@@ -252,8 +248,8 @@ PACK_STRUCT_END
 #ifdef PACK_STRUCT_USE_INCLUDES
 #  include "arch/epstruct.h"
 #endif
-
-char deb[200];
+	
+sntpCallback sntpCb = NULL;
 static os_timer_t ntp_timer;
 
 /* function prototypes */
@@ -306,14 +302,13 @@ sntp_process(u32_t *receive_timestamp)
    * @todo: if MSB is 1, SNTP time is 2036-based!
    */
   time_t t = (ntohl(receive_timestamp[0]) - DIFF_SEC_1900_1970);
-  sntp_time  = t;
+  sntp_time  = t + TZ_ADJ;
 #if SNTP_CALC_TIME_US
   u32_t us = ntohl(receive_timestamp[1]) / 4295;
   SNTP_SET_SYSTEM_TIME_US(t, us);
   
   /* display local time from GMT time */
-	os_sprintf(deb,"sntp_process: %lu" , t);
-  	INFO(deb);
+  	INFO("sntp_process: %u" , t);
 
 #else /* SNTP_CALC_TIME_US */
 
@@ -321,12 +316,14 @@ sntp_process(u32_t *receive_timestamp)
   SNTP_SET_SYSTEM_TIME(t);
   
   /* display local time from GMT time */
-  os_sprintf(deb, "sntp_process: %lu", t);
-  INFO(deb);
+  INFO("sntp_process: %u", t);
 #endif /* SNTP_CALC_TIME_US */
   os_timer_disarm(&ntp_timer);
   ets_timer_arm_new(&ntp_timer,1000,1);
-  INFO("\nArming timer...\n");
+  INFO("\nArming NTP timer...\n");
+  
+if(sntpCb)
+	sntpCb(sntp_time);
 }
 
 /**
@@ -336,8 +333,7 @@ static void
 sntp_initialize_request(struct sntp_msg *req)
 {
 
-	os_sprintf(deb,"sntp_initialize_request\n");
-   	INFO(deb);
+   	INFO("sntp_initialize_request\n");
 
   memset(req, 0, SNTP_MSG_LEN);
   req->li_vn_mode = SNTP_LI_NO_WARNING | SNTP_VERSION | SNTP_MODE_CLIENT;
@@ -396,8 +392,7 @@ sntp_try_next_server(void* arg)
 {
   LWIP_UNUSED_ARG(arg);
 
-  	os_sprintf(deb,"Trying next server\r\n");
-    INFO(deb);
+    INFO("Trying next server\r\n");
 
   if (sntp_num_servers > 1) {
     /* new server: reset retry timeout */
@@ -408,13 +403,11 @@ sntp_try_next_server(void* arg)
     }
 
       (u16_t)sntp_current_server));
-    	os_sprintf(deb,"sntp_try_next_server: Sending request to server %"U16_F"\n", (u16_t)sntp_current_server);
-    	INFO(deb);
+    	INFO("sntp_try_next_server: Sending request to server %"U16_F"\n", (u16_t)sntp_current_server);
     /* instantly send a request to the next server */
     sntp_request(NULL);
   } else {
-	  os_sprintf(deb,"Retrying null\n");
-    INFO(deb);
+    INFO("Retrying null\n");
     sntp_retry(NULL);
   }
 }
@@ -435,8 +428,7 @@ sntp_recv(void *arg, struct udp_pcb* pcb, struct pbuf *p, ip_addr_t *addr, u16_t
   LWIP_UNUSED_ARG(arg);
   LWIP_UNUSED_ARG(pcb);
 
-os_sprintf(deb,"sntp recv\n");
-  INFO(deb);
+  INFO("sntp recv\n");
 
   /* packet received: stop retry timeout  */
   sys_untimeout(sntp_try_next_server, NULL);
@@ -516,21 +508,18 @@ sntp_send_request(ip_addr_t *server_addr)
   if (p != NULL) {
     struct sntp_msg *sntpmsg = (struct sntp_msg *)p->payload;
 
-  	os_sprintf(deb,"sntp_send_request: Sending request to server\n");
-   	INFO(deb);
+   	INFO("sntp_send_request: Sending request to server\n");
     /* initialize request message */
     sntp_initialize_request(sntpmsg);
     /* send request */
     udp_sendto(sntp_pcb, p, server_addr, SNTP_PORT);
 	
-	os_sprintf(deb,"sntp_send_request: Sent request to server\n");
-   	INFO(deb);
+   	INFO("sntp_send_request: Sent request to server\n");
 
     /* free the pbuf after sending it */
     pbuf_free(p);
 	
-	os_sprintf(deb,"sntp_send_request: freed request\n");
-   	INFO(deb);
+   	INFO("sntp_send_request: freed request\n");
 
     /* set up receive timeout: try next server or retry on timeout */
     sys_timeout((u32_t)SNTP_RECV_TIMEOUT, sntp_try_next_server, NULL);
@@ -540,14 +529,11 @@ sntp_send_request(ip_addr_t *server_addr)
 #endif /* SNTP_CHECK_RESPONSE >= 1 */
   } else {
 
-	  os_sprintf(deb,"sntp_send_request: Out of memory, trying again in %"U32_F" ms\n",(u32_t)SNTP_RETRY_TIMEOUT);
-	  INFO(deb);
+	  INFO("sntp_send_request: Out of memory, trying again in %"U32_F" ms\n",(u32_t)SNTP_RETRY_TIMEOUT);
     /* out of memory: set up a timer to send a retry */
     sys_timeout((u32_t)SNTP_RETRY_TIMEOUT, sntp_request, NULL);
   }
-	os_sprintf(deb,"sntp_send_request: finished\n");
-   	INFO(deb);
-
+   	INFO("sntp_send_request: finished\n");
 }
 
 #if SNTP_SERVER_DNS
@@ -612,23 +598,28 @@ sntp_request(void *arg)
  * Send out request instantly or after SNTP_STARTUP_DELAY.
  */
 void
-sntp_init(int tz)
+sntp_init(int tz, sntpCallback cb)
 {
   INFO("Sntp initializing...\n");
   sntp_tz = tz;
+  sntpCb = cb;
+  
   if (sntp_pcb == NULL) {
     os_timer_setfn(&ntp_timer,ntp_time_update,NULL);
     SNTP_RESET_RETRY_TIMEOUT();
     sntp_pcb = udp_new();
     LWIP_ASSERT("Failed to allocate udp pcb for sntp client", sntp_pcb != NULL);
+	
     if (sntp_pcb != NULL) {
       udp_recv(sntp_pcb, sntp_recv, NULL);
 #if SNTP_STARTUP_DELAY
       sys_timeout((u32_t)SNTP_STARTUP_DELAY, sntp_request, NULL);
 #else
       sntp_request(NULL);
+	  
 #endif
     }
+	
   }
 }
 

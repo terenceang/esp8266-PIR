@@ -9,7 +9,8 @@ Works and tested on ESP8266-01
 **Features**
 ****************************************************************
 
-Unit resets, send publishes a timestamped message to a MQTT broker and goes into deepsleep.
+Unit resets.
+Publishes a timestamped message to a MQTT broker and goes into deepsleep.
 
 ****************************************************************
 
@@ -25,6 +26,9 @@ Unit resets, send publishes a timestamped message to a MQTT broker and goes into
 **MQTT code based on https://github.com/tuanpmt/esp_mqtt**
 
 ****************************************************************
+
+LED + and LED - goes replaces the LED on the PIR light.
+more info at :- coming soon.
 
 ![alt tag](https://raw.githubusercontent.com/terenceang/esp8266-PIR/master/schematic.png)
 
