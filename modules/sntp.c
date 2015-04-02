@@ -288,7 +288,6 @@ static u32_t sntp_last_timestamp_sent[2];
 #endif /* SNTP_CHECK_RESPONSE >= 2 */
 
 time_t sntp_time;
-int sntp_tz;
 void ICACHE_FLASH_ATTR
 ntp_time_update(void *);
 
@@ -598,10 +597,9 @@ sntp_request(void *arg)
  * Send out request instantly or after SNTP_STARTUP_DELAY.
  */
 void
-sntp_init(int tz, sntpCallback cb)
+sntp_init(sntpCallback cb)
 {
   INFO("Sntp initializing...\n");
-  sntp_tz = tz;
   sntpCb = cb;
   
   if (sntp_pcb == NULL) {

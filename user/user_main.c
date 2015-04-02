@@ -64,7 +64,7 @@ void sntpGotTime(time_t ntp_time){
 	sleep = 1;
 	
 	os_sprintf(topic,"/ESP-PIR/%d", chip_ID);//set topic
-	os_sprintf(timestamp,"%s : motion detected at %s\r\n", client_ID, epoch_to_str(sntp_time)); //+8 SG time
+	os_sprintf(timestamp,"%s : motion detected at %s\r\n", client_ID, epoch_to_str(ntp_time)); //+8 SG time
 	MQTT_Publish(client, topic, timestamp, strlen(timestamp), 1, 0); //publish message
 	INFO("got time : %s\r\n",epoch_to_str(ntp_time));	
 }
@@ -87,7 +87,7 @@ void mqttConnectedCb(uint32_t *args)
 	INFO("MQTT: Connected\r\n");
 	os_sprintf(lwt,"/ESP-PIR/%d/status", chip_ID); //set LWT
 	MQTT_Publish(client, lwt, NULL, 0, 0, 1); //clear LWT	
-	sntp_init(0, sntpGotTime);
+	sntp_init(sntpGotTime);
 }
 
 //Call back for message published
