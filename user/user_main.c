@@ -43,19 +43,19 @@ MQTT_Client mqttClient;
 static char client_ID[25];
 static volatile uint32_t chip_ID;
 
-static volatile uint8_t sleep = 0;
 static volatile os_timer_t sleep_timer;
 
-void ICACHE_FLASH_ATTR sleep_timer_func(void);
+static volatile uint8_t sleep = 0;
+//uint8_t ssid_found;
+
 void ICACHE_FLASH_ATTR sntpGotTime(time_t ntp_time);
 
-void sleep_timer_func(void){
-	
+void sleep_timer_func(void){	
 	INFO("Going for deep sleep. gd night\r\n");
 	deep_sleep_set_option(1);
 	system_deep_sleep(0);
 }
-	
+
 void sntpGotTime(time_t ntp_time){
 	MQTT_Client* client = (MQTT_Client*)&mqttClient;
 	
@@ -105,32 +105,37 @@ void mqttPublishedCb(uint32_t *args)
 	}
 }
 
+void ICACHE_FLASH_ATTR init_done(void)
+{
+		WIFI_Connect(STA_SSID, STA_PASS, wifiConnectCb);
+}
+
 void ICACHE_FLASH_ATTR user_init(void)
 {
 	char lwt[100];
     // Initialize the GPIO subsystem.
     gpio_init();
 	
-    stdout_init(); //init TXD 9600baud. free up RXD for GPIO
+    stdout_init(); //init TXD 115200 baud. free up RXD for GPIO
 
-	INFO("init\r\n");
-	
+	INFO("system init\r\n");
+
+#ifdef USE_CHIP_ID
 	chip_ID = system_get_chip_id();
 	os_sprintf(client_ID,"%s-%d", MQTT_CLIENT_ID, chip_ID);
+#else
+	os_sprintf(client_ID,"%s", MQTT_CLIENT_ID);
+#endif	
+	
 	//SetUp MQTT client
 	MQTT_InitConnection(&mqttClient, MQTT_HOST, MQTT_PORT, DEFAULT_SECURITY);
 	MQTT_InitClient(&mqttClient, client_ID, MQTT_USER, MQTT_PASS, MQTT_KEEPALIVE, 1);
 	os_sprintf(lwt,"/ESP-PIR/%d/status", chip_ID); //set LWT
 	MQTT_InitLWT(&mqttClient, lwt, "offline", 0, 1);
 	MQTT_OnConnected(&mqttClient, mqttConnectedCb);
-//	MQTT_OnDisconnected(&mqttClient, mqttDisconnectedCb);
 	MQTT_OnPublished(&mqttClient, mqttPublishedCb);
 	
-	os_delay_us(1000000);
-	
-	//Connect to WIFI
-	INFO("connect WIFI\r\n");
-	WIFI_Connect(STA_SSID, STA_PASS, wifiConnectCb);
+	system_init_done_cb(init_done);
 
 	INFO("\r\nSystem started ...\r\n");
 	

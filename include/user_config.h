@@ -7,6 +7,8 @@
 
 #define TZ_ADJ 28800 // Adjust time to GMT+8
 
+#define AP_RETRY 4 // no of retry before giving up
+
 /*DEFAULT CONFIGURATIONS*/
 
 #define MQTT_HOST			"192.168.1.100" //or "mqtt.yourdomain.com"
@@ -15,6 +17,8 @@
 #define MQTT_KEEPALIVE		120	 /*second*/
 
 #define MQTT_CLIENT_ID		"ESP-PIR"
+#define USE_CHIP_ID
+
 #define MQTT_USER			"ESP01"
 #define MQTT_PASS			"esp01"
 
